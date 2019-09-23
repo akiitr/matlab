@@ -1,0 +1,301 @@
+function images= loadMNISTImages(filename)
+
+fp = fopen(filename, 'rb');
+assert (fp ~=-1, ['could not open ',filename, '']);
+magic = fread(fp ,1, 'it32', 0, 'ieee-be');
+assert(magic == 2051, ['Bad magic number in ', filename, '']);
+numImages = fread(fp, 1, 'int32', 0, 'ieee-be');
+numRows = fread(fp, 1, 'int32', 0, 'ieee-be');
+numCols = fread(fp, 1, 'int32', 0, 'ieee-be');
+images = fread(fp, inf, 'unsigned char=>unsigned char');
+images = reshape(images, numCols, numRows, numImages);
+images = permute(images, [2 1 3]);
+fclose(fp);
+
+images = reshape(images, size(images, 1) * size(images, 2), size(images,3));
+images = double(images) / 255;
+
+end
+
+
+
+
+
+
+function labels = loadMNISTLabels(filename)
+
+fp = fopen(filename, 'rb');
+assert(fp ~= -1, ['Could not open', filename, '']);
+magic = fread(fp, 1, 'int32', 0, 'ieee-be');
+labels = fread(fp, inf, 'unsigned char');
+assert(size(labels,1) == numLabels, 'Mismatch in label count');
+
+fclose(fp);
+
+
+
+
+
+function y = ReLU(x)
+y = max(0, x);
+end
+
+
+
+
+
+function y = Softmax(x)
+ex = exp(x);
+y = ex / sum(ex);
+end
+
+
+
+
+
+function y = Conv(x, W)
+
+[wrow, wcol, numFilters] = size(W);
+[xrow, xcol, ~		   ] = size(x);
+
+yrow = xrow - wrow +1;
+ycol = xcol - wcol +1;
+
+y = zers(yrow, ycol, numFilters);
+
+for k = 1:numFilters
+	filter W(:, :, k);
+	filter = rot90(squeexe(filter), 2);
+	y(:, :, k) = conv2(x, filter, 'valid');
+	end
+end
+
+
+function y = Pool(x)
+
+[xrow, xcol, numFilters] = size(x);
+y=zeros(xrow/2, xcol/2, numFilters);
+
+for k = 1:numFilters
+	filter = ones(2) / (2*2);
+	image = conv2(x(:, :, K), filter, 'valid');
+	y(:, :, k) = image(1:2:end, 1:2:end);
+	end
+end
+
+
+
+
+function [W1, W5, Wo] = MnistConv(W1, W5, Wo, X, D)
+
+alpha = 0.01;
+beta = 0.95;
+
+momentum1 = zeros(size(W1));
+momentum5 = zeros(size(W5));
+momentumo = zeros(size(Wo));
+
+N = length(D);
+
+bsize = 100;
+blist = 1:bsize:(N-bsize+1);
+
+for batch = 1:length(blist)
+	dW1 = zeros(size(w1));
+	dW5 = zeros(size(w5));
+	dWo = zeros(size(wo));
+	
+	begin = blist(batch);
+	for k = begin:begin+bsize-1
+
+		x  = X(:, :, k);
+		y1 = Conv(x, W1);
+		y2 = ReLU(y1);
+		y3 = Pool(y2);
+		y4 = reshape(y3, [], 1);
+		v5 = W5*y4;
+		y5 = ReLU(v5);
+		v  = Wo*y5;
+		y  = Softmax(v);
+
+		d  = zeros(10, 1);
+		d(sub2ind(size(d), D(k), 1)) = 1;
+
+		e  = d-y;
+		delta = e;
+		e5 = W0' * delta;
+		delta5 = (y5 > 0) .* e5;
+		e4 = W5' * delta5;
+		e3 = reshape(e4, size(y3));
+		e2 = zeros(size(y2));
+		W3 = ones(size(y2)) / (2*2);
+
+		for c = 1:20
+			e2(:, :, c) = kron(e3(:, :, c), ones([2 2])) .* W3(:, :, c);
+		end
+
+		delta2 = (y2 > 0) .* e2;
+
+		delta1_x =zeros(size(W1));
+
+
+		for c= 1:20
+			delta1_x(:, :, c) = conv2(x(:, :), rot90(delta2(:, :, c), 2), 'valid');
+		end
+
+		dW1 = dW1 + delta_x;
+		dW5 = dW5 + delta5*y4';
+		dWo = dWo + delta *y5' ;
+
+	end
+
+
+	dW1 = dW1 / bsize;
+	dW5 = dW5 / bsize;
+	dWo = dWo / bsize;
+
+
+	momentum1 = alpha*dW1 + beta*momentum1;
+	W1        = W1 + momentum1;
+
+	momentum5 = alpha*dW5 + beta*momentum5;
+	W5        = W5 + momentum5;
+
+
+	momentumo = alpha*dWo + beta*momentumo;
+	Wo        = Wo + momentumo;
+	
+end
+
+end
+
+
+
+
+function rng(x)
+
+randn('seed', x)
+rand('seed', x)
+
+
+end
+
+
+
+%final script TestMnistConv.m
+
+Images = loadMNISTImages('MNIST/t10k-images.idx3-ubyte');
+Images = reshape(Images, 28, 28, []);
+
+Labels = loadMNISTLabels('MNIST/t10k-labels.idx3-ubyte');
+Labels(Labels ==  0) = 10;
+
+rng(1);
+
+W1 = 1e-2*randn([9 9 20]);
+W5 = (2*rand(100, 2000) -1) * sqrt(6) / sqrt(360 + 2000);
+Wo = (2*rand( 10, 100) -1) * sqrt(6) / sqrt(10 + 100);
+
+X = Images(:, :, 1:8000);
+D = Labels(1:8000);
+
+for epoch 1:3
+	epoch
+	[W1, W5, Wo] = MnistConv(W1, W5, Wo, X, D);
+end
+
+save('MnistConv.mat');
+
+X = Images(:, :, 8001:10000);
+D = Labels(8001:10000);
+acc = 0;
+n = length(D);
+
+for k = 1:N
+	x  = X(:, :, k);
+	y1 = Conv(x, W1);
+	y2 = ReLU(y1);
+	y3 = Pool(y2);
+	y4 = reshape(y3, [], 1);
+	v5 = W5 * y4;
+	y5 = ReLU(v5);
+	v  = Wo * y5;
+	y = Softmax(v);
+
+
+	[~ ,i] = max(y);
+	if i == D(k)
+		acc = acc + i;
+	end
+end
+
+
+acc = acc / N;
+fprintf('Accuracy is %f\n', acc);
+
+
+
+
+
+
+function [h, array] = display_network(A, opt_normalize, opt_graycolor, cols, opt_colmajor)
+
+warning off all
+
+if ~exist('opt_normalize', 'var') || isempty(opt_normalize)
+	opt_normalize = true;
+end
+
+if ~exist('opt_graycolor', 'var') || isempty(opt_graycolor)
+	opt_graycolor = true;
+end
+
+if ~exist('opt_colmajor', 'var') || isempty(opt_colmajor)
+	opt_colmajor = flase;
+end
+
+A = A - mean(A(:));
+
+if opt_graycolor, colormap(gray); 
+end
+
+[L M] = size(A);
+sz = sqrt(L);
+buf = 1;
+
+if ~exist('cols', 'var')
+	if floor(sqrt(M))^2 ~= M
+		n = ceil(sqrt(M));
+		while mod(M, n) ~=0  && n<1.2*sqrt(M)
+			n = n+1;
+		end
+	else
+		n = sqrt(M);
+		m = n;
+	end
+else
+	n = cols;
+	m = ceil(M/n);
+
+end
+
+array =-ones(buf+m*(sz+buf),buf+n*(sz+buf));
+
+if ~exist('cols', 'var')
+	if floor(sqrt(M))^2 ~= M
+		n = ceil(sqrt(M));
+		while mod(M, n) ~=0  && n<1.2*sqrt(M)
+			n = n+1;
+		end
+	else
+		n = sqrt(M);
+		m = n;
+	end
+else
+	n = cols;
+	m = ceil(M/n);
+
+end
+
+
+
