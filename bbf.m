@@ -1,0 +1,13 @@
+function[n,wp]=bbf(wp,ws,ap,as)
+[N,WP]=cheb1ord(0.45,0.5,3,60)
+Wp=2*tan((wp*pi)/2);
+Ws=2*tan((ws*pi)/2);
+dels=10^((-as)/20);
+delp=10^((-ap)/20);
+a=(dels^-2)-1;
+b=(delp^-2)-1;
+n=(acosh(sqrt(a/b)))/(acosh(Ws/Wp));
+n=ceil(n);
+n=abs(n);
+e=sqrt(a);
+end
